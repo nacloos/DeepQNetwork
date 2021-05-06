@@ -1,0 +1,16 @@
+{
+    "n_episodes": 150,
+    "episode_max_steps": 500,
+    "video_iter": 1000,
+    "batch_size": 128,
+    "lr": 0.01,
+    "gamma": 0.99,
+    "epsilon_start": 1,
+    "epsilon_final": 0.01,
+    "epsilon_decay_steps": 3000,
+    "replay_capacity": 10000,
+    "replay_min": 5000,
+    "target_update": 5,
+    "cnn": true,
+    "n_hidden": 64
+}

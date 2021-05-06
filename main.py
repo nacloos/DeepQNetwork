@@ -17,7 +17,7 @@ from torch.utils.tensorboard import SummaryWriter
 from model import DQNAgent
 
 
-env_name = "MiniGrid-Empty-8x8-v0"
+env_name = "MiniGrid-Empty-5x5-v0"
 # env_name = "MiniGrid-Empty-Random-5x5-v0"
 
 save_dir = Path("runs")
@@ -25,7 +25,7 @@ model_name = "DQN"
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 config = {
-    'n_episodes': 100,
+    'n_episodes': 150,
     'episode_max_steps': 500,
     'video_iter': 1000,
 
@@ -59,16 +59,12 @@ def preprocess_obs(obs):
         obs = obs.reshape(-1)
     return obs
 
-
-def save_model(net, config, save_path):
-    torch.save(net.state_dict(), save_path / "model.pt")
-    with open(save_path / "config.json", 'w') as f:
-        json.dump(config, f, indent=4)
-
-
 def train(env):
     print("Starting {} on device: {}".format(run_name, device))
     save_path.mkdir(parents=True, exist_ok=True)
+    with open(save_path / "config.json", 'w') as f:
+        json.dump(config, f, indent=4)
+
     log_writer = SummaryWriter(save_path)
     agent = DQNAgent(env.observation_space.shape, env.action_space.n, log_writer, config, device=device)
 
@@ -137,7 +133,7 @@ def train(env):
         if episode % config['target_update'] == 0:
             agent.target_net.load_state_dict(agent.net.state_dict())
 
-    save_model(agent.net, config, save_path)
+    torch.save(net.state_dict(), save_path / "model.pt")
     play(agent, env, save_video=save_path / "iter-{}-final.gif".format(training_iter))
 
 
