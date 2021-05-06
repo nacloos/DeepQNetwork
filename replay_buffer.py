@@ -12,7 +12,7 @@ class ReplayMemory():
 
     def sample(self, batch_size):
         transitions = random.sample(self.buffer, batch_size)
-        return tuple(zip(*transitions)) # transpose the batch ((see https://stackoverflow.com/a/19343/3343043)
+        return list(zip(*transitions)) # transpose the batch ((see https://stackoverflow.com/a/19343/3343043)
 
     def __len__(self):
         return len(self.buffer)
