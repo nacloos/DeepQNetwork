@@ -17,16 +17,16 @@ class CNN_DQN(nn.Module):
             nn.Conv2d(3, 16, (2, 2)),
             nn.ReLU(),
             # nn.MaxPool2d((2, 2)),
-            # nn.Conv2d(16, 32, (2, 2)),
-            # nn.ReLU(),
-            nn.Conv2d(16, 64, (2, 2)),
+            nn.Conv2d(16, 32, (2, 2)),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, (2, 2)),
             nn.ReLU()
         )
         conv_out_size = self._get_conv_out((3,7,7))
         self.out_layers = nn.Sequential(
-            nn.Linear(conv_out_size, 16),
+            nn.Linear(conv_out_size, 64),
             nn.ReLU(),
-            nn.Linear(16, n_outputs)
+            nn.Linear(64, n_outputs)
         )
 
     def _get_conv_out(self, shape):

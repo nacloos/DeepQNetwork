@@ -17,26 +17,26 @@ from torch.utils.tensorboard import SummaryWriter
 from model import DQNAgent
 
 
-env_name = "MiniGrid-Empty-5x5-v0"
-# env_name = "MiniGrid-Empty-Random-5x5-v0"
+# env_name = "MiniGrid-Empty-5x5-v0"
+env_name = "MiniGrid-Empty-Random-5x5-v0"
 
 save_dir = Path("runs")
 model_name = "DQN"
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 config = {
-    'n_iter': 3000, # number of training iterations
+    'n_iter': 10000, # number of training iterations
     'episode_max_steps': 500,
     'video_iter': 1000,
     'n_actions': 3, # consider only the 3 actions: left, right, forward
 
     # 'batch_size': 1000,
     'batch_size': 256,
-    'lr': 0.01, # 0.05 is too large
+    'lr': 0.001, # 0.05 is too large
     'gamma': 0.99,
     'epsilon_start': 1,
     'epsilon_final': 0.1, 
-    'epsilon_decay_steps': 3000,
+    'epsilon_decay_steps': 9000,
     'replay_capacity': 10000,
     'replay_min': 5000, # min replay size before training
     'target_update': 500, # number of training iterations per target net update
@@ -198,7 +198,14 @@ env = gym.make(env_name)
 env = ImgObsWrapper(env)
 env.seed(5)
 
-train(env)
-# play(None, env)
-# for i in range(3):
-#     play(None, env)
+if args.load == "":
+    train(env)
+else:
+    with open(save_path / "config.json", 'r') as f:
+        config = json.load(f)
+        
+    agent = DQNAgent(env.observation_space.shape, config['n_actions'], None, config, device=device)
+    agent.net.load_state_dict(torch.load(save_path / "model.pt"))
+
+    for i in range(20):
+        play(agent, env)
