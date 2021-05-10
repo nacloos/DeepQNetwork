@@ -12,28 +12,31 @@ from time import perf_counter
 class CNN_DQN(nn.Module):
     def __init__(self, input_shape, n_outputs, config):
         super(CNN_DQN, self).__init__()
-        n_hidden = config['n_hidden']
+        # n_hidden = config['n_hidden']
         self.conv_layers = nn.Sequential(
             nn.Conv2d(3, 16, (2, 2)),
             nn.ReLU(),
-            nn.MaxPool2d((2, 2)),
-            nn.Conv2d(16, 32, (2, 2)),
-            nn.ReLU(),
-            nn.Conv2d(32, 64, (2, 2)),
+            # nn.MaxPool2d((2, 2)),
+            # nn.Conv2d(16, 32, (2, 2)),
+            # nn.ReLU(),
+            nn.Conv2d(16, 64, (2, 2)),
             nn.ReLU()
         )
-        embedding_size = ((input_shape[0]-1)//2-2)*((input_shape[1]-1)//2-2)*64
+        conv_out_size = self._get_conv_out((3,7,7))
         self.out_layers = nn.Sequential(
-            nn.Linear(embedding_size, 64),
+            nn.Linear(conv_out_size, 16),
             nn.ReLU(),
-            nn.Linear(64, n_outputs)
+            nn.Linear(16, n_outputs)
         )
 
+    def _get_conv_out(self, shape):
+        o = self.conv_layers(torch.zeros(1, *shape))
+        return int(np.prod(o.size()))
 
     def forward(self, x):
         x = x.transpose(1, 3).transpose(2, 3)
         x = self.conv_layers(x)
-        x = x.reshape(x.shape[0], -1) # batch_size x embedding_size
+        x = x.reshape(x.shape[0], -1)
         x = self.out_layers(x)
         return x
 
@@ -75,6 +78,8 @@ class DQNAgent():
         self.target_net.load_state_dict(self.net.state_dict())
         self.target_net.eval() # evaluation mode (don't compute gradients, etc)
 
+        self.double = config['double']
+
         self.log_writer = log_writer
         self.device = device
         self.total_time = 0
@@ -114,9 +119,14 @@ class DQNAgent():
 
             Q = self.net(obs).gather(1, action.reshape(-1, 1)).reshape(-1)
 
-            next_Q = self.target_net(next_obs).max(dim=1)[0].detach()
-            # next_Q[done_mask] = 0.0
+            next_Q_values = self.target_net(next_obs).detach()
+            if not self.double:
+                next_Q = next_Q_values.max(dim=1)[0]
+            else:
+                a = self.net(next_obs).argmax(dim=1).detach()
+                next_Q = next_Q_values.gather(1, a.reshape(-1, 1)).reshape(-1)
 
+            next_Q[done_mask] = 0.0
             Q_target = reward + self.gamma*next_Q
 
             # if the residual variance is close to 1, the network doesn't learn to predict the reward (the error varies as much as the target -> not learning)
