@@ -12,7 +12,6 @@ from time import perf_counter
 class CNN_DQN(nn.Module):
     def __init__(self, input_shape, n_outputs, config):
         super(CNN_DQN, self).__init__()
-        # n_hidden = config['n_hidden']
         self.conv_layers = nn.Sequential(
             nn.Conv2d(3, 16, (2, 2)),
             nn.ReLU(),
@@ -22,12 +21,26 @@ class CNN_DQN(nn.Module):
             nn.Conv2d(32, 64, (2, 2)),
             nn.ReLU()
         )
-        conv_out_size = self._get_conv_out((3,7,7))
-        self.out_layers = nn.Sequential(
-            nn.Linear(conv_out_size, 64),
-            nn.ReLU(),
-            nn.Linear(64, n_outputs)
-        )
+        conv_out_size = self._get_conv_out((input_shape[2], *input_shape[:2]))
+
+        self.dueling = config['dueling']        
+        if not self.dueling:
+            self.fc_layers = nn.Sequential(
+                nn.Linear(conv_out_size, 64),
+                nn.ReLU(),
+                nn.Linear(64, n_outputs)
+            )
+        else:
+            self.fc_A = nn.Sequential(
+                nn.Linear(conv_out_size, 64),
+                nn.ReLU(),
+                nn.Linear(64, n_outputs)
+            )
+            self.fc_V = nn.Sequential(
+                nn.Linear(conv_out_size, 64),
+                nn.ReLU(),
+                nn.Linear(64, 1)
+            )
 
     def _get_conv_out(self, shape):
         o = self.conv_layers(torch.zeros(1, *shape))
@@ -37,7 +50,12 @@ class CNN_DQN(nn.Module):
         x = x.transpose(1, 3).transpose(2, 3)
         x = self.conv_layers(x)
         x = x.reshape(x.shape[0], -1)
-        x = self.out_layers(x)
+        if not self.dueling:
+            x = self.fc_layers(x)
+        else:
+            V = self.fc_V(x)
+            A = self.fc_A(x)
+            x = V + A - A.mean()
         return x
 
 

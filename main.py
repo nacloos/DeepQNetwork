@@ -18,32 +18,33 @@ from model import DQNAgent
 
 
 # env_name = "MiniGrid-Empty-5x5-v0"
-env_name = "MiniGrid-Empty-Random-5x5-v0"
+env_name = "MiniGrid-Empty-Random-6x6-v0"
 
 save_dir = Path("runs")
 model_name = "DQN"
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 config = {
-    'n_iter': 10000, # number of training iterations
+    'n_iter': 2500, # number of training iterations
     'episode_max_steps': 500,
     'video_iter': 1000,
     'n_actions': 3, # consider only the 3 actions: left, right, forward
 
     # 'batch_size': 1000,
     'batch_size': 256,
-    'lr': 0.001, # 0.05 is too large
+    'lr': 0.01, # 0.05 is too large
     'gamma': 0.99,
     'epsilon_start': 1,
     'epsilon_final': 0.1, 
-    'epsilon_decay_steps': 9000,
+    'epsilon_decay_steps': 1800,
     'replay_capacity': 10000,
     'replay_min': 5000, # min replay size before training
-    'target_update': 500, # number of training iterations per target net update
+    'target_update': 200, # number of training iterations per target net update
 
     'cnn': True,
     # 'n_hidden': 64, # number of hidden units in DQN
-    'double': False # TODO it seems to degrade perf
+    'double': True, # TODO it seems to degrade perf
+    'dueling': True
 }
 
 parser = argparse.ArgumentParser()
@@ -135,7 +136,7 @@ def train(env):
         log_writer.add_scalar('Episode/steps', step, episode)
         log_writer.add_scalar('Episode/total reward', total_reward, episode)
         log_writer.add_scalar('Net/episode averaged loss', total_loss/(step+1), episode)
-        print("Episode {}: steps={}, time per step={:.3f}s, loss_time={:.3f}, optim time={:.3f}s, env time={:.3f}".format(episode, step, (perf_counter()-start_time)/(step+1), loss_time/(step+1), optim_time/(step+1), env_time/(step+1)))
+        print("Episode {}, training iter {}: steps={}, time per step={:.3f}s, loss_time={:.3f}, optim time={:.3f}s, env time={:.3f}".format(episode, training_iter, step, (perf_counter()-start_time)/(step+1), loss_time/(step+1), optim_time/(step+1), env_time/(step+1)))
 
         episode += 1
         # if episode % config['target_update'] == 0:
