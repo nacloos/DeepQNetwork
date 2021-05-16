@@ -41,7 +41,6 @@ class CNN_DQN(nn.Module):
                 nn.Linear(64, 1)
             )
 
-
     def _get_conv_out(self, shape):
         o = self.conv_layers(torch.zeros(1, *shape))
         return int(np.prod(o.size()))
@@ -120,7 +119,6 @@ class DQNAgent():
         self.log_writer.add_scalar('Agent/replay memory size', len(self.replay_buffer), iter)
 
         if len(self.replay_buffer) > self.replay_min:
-            # 0.001
             obs, action, reward, next_obs, done = self.replay_buffer.sample(self.batch_size)
             
             # TODO this is what takes most of the time
