@@ -4,6 +4,7 @@ import argparse
 import json
 from array2gif import write_gif
 from time import perf_counter
+import random
 import numpy as np
 
 import gym_minigrid
@@ -18,37 +19,49 @@ from model import DQNAgent
 
 
 # env_name = "MiniGrid-Empty-5x5-v0"
+# env_name = "MiniGrid-FourRooms-v0"
 env_name = "MiniGrid-Empty-Random-6x6-v0"
+# env_name = "MiniGrid-Empty-16x16-v0"
+# env_name = "MiniGrid-Empty-Random-5x5-v0"
 
 save_dir = Path("runs")
 model_name = "DQN"
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+# device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = 'cpu' # use CPU for reproducibility
 config = {
-    'n_iter': 2500, # number of training iterations
+    'n_iter': 2000, # number of training iterations
     'episode_max_steps': 500,
-    'video_iter': 1000,
+    'video_iter': 500,
     'n_actions': 3, # consider only the 3 actions: left, right, forward
 
-    # 'batch_size': 1000,
     'batch_size': 256,
-    'lr': 0.01, # 0.05 is too large
+    'lr': 0.01,
     'gamma': 0.99,
     'epsilon_start': 1,
     'epsilon_final': 0.1, 
-    'epsilon_decay_steps': 1800,
+    'epsilon_decay_steps': 1900,
     'replay_capacity': 10000,
-    'replay_min': 5000, # min replay size before training
-    'target_update': 200, # number of training iterations per target net update
+    "replay_min": 5000, # min replay size before training
+    'target_update': 500, # number of training iterations per target net update
+    'random_seed': 5,
 
     'cnn': True,
-    # 'n_hidden': 64, # number of hidden units in DQN
-    'double': True, # TODO it seems to degrade perf
-    'dueling': True
+    'double': False, 
+    'dueling': False
 }
 
+# reproducibility
+random.seed(config['random_seed'])
+np.random.seed(config['random_seed'])
+torch.manual_seed(config['random_seed'])
+torch.set_deterministic(True)
+
+
+
 parser = argparse.ArgumentParser()
-parser.add_argument("--load", type=str, default="", help="load a run. Let empty to start a new run")
+parser.add_argument("--load", type=str, default="", help="Load a saved model")
+parser.add_argument("--train", type=bool, default=False, help="Train the loaded model")
 args = parser.parse_args()
 
 run_name = "run-" + datetime.utcnow().strftime("%Y%m%d%H%M%S") if args.load == "" else args.load
@@ -63,14 +76,13 @@ def preprocess_obs(obs):
         obs = obs.reshape(-1)
     return obs
 
-def train(env):
+def train(env, agent, env2=None):
     print("Starting {} on device: {}".format(run_name, device))
     save_path.mkdir(parents=True, exist_ok=True)
     with open(save_path / "config.json", 'w') as f:
         json.dump(config, f, indent=4)
 
-    log_writer = SummaryWriter(save_path)
-    agent = DQNAgent(env.observation_space.shape, config['n_actions'], log_writer, config, device=device)
+    # agent = DQNAgent(env.observation_space.shape, config['n_actions'], log_writer, config, device=device)
 
     optimizer = optim.Adam(agent.net.parameters(), lr=config['lr'])
     
@@ -86,13 +98,18 @@ def train(env):
         loss_time = 0
         env_time = 0
 
-        obs = env.reset() 
-        obs = preprocess_obs(obs)
+        if env2 is None:
+            train_env = env
+        else:
+            train_env = env if np.random.rand() < 0.75 else env2 # pick the env at random
 
+        obs = train_env.reset() 
+        obs = preprocess_obs(obs)
+        
         for step in range(config['episode_max_steps']):
             tic = perf_counter()
             action = agent.select_action(obs, training_iter)
-            next_obs, reward, done, _ = env.step(action)
+            next_obs, reward, done, _ = train_env.step(action)
             next_obs = preprocess_obs(next_obs)
             env_time += perf_counter() - tic
 
@@ -142,6 +159,8 @@ def train(env):
         # if episode % config['target_update'] == 0:
         #     agent.target_net.load_state_dict(agent.net.state_dict())
 
+
+    # TODO save every time the best score is beatenw
     torch.save(agent.net.state_dict(), save_path / "model.pt")
     play(agent, env, save_video=save_path / "iter-{}-final.gif".format(training_iter))
 
@@ -194,19 +213,40 @@ def play(agent, env, training_iter=None, save_video=None, max_steps=50):
         write_gif(np.array(frames), save_video)
 
 
-env = gym.make(env_name)
-# env = FullyObsWrapper(env)
-env = ImgObsWrapper(env)
-env.seed(5)
+def make_env(env_name):
+    env = gym.make(env_name)
+    # env = FullyObsWrapper(env)
+    # env = StateBonus(env)
+    # env = ActionBonus(env)
+    env = ImgObsWrapper(env)
+    env.seed(config['random_seed'])
+    return env
 
-if args.load == "":
-    train(env)
+
+env = make_env(env_name)
+if 'env_name2' in globals():
+    env2 = make_env(env_name2) 
 else:
+    env2 = None
+
+log_writer = SummaryWriter(save_path)
+
+if args.load != "":
+    # load a saved agent
     with open(save_path / "config.json", 'r') as f:
         config = json.load(f)
-        
-    agent = DQNAgent(env.observation_space.shape, config['n_actions'], None, config, device=device)
+    agent = DQNAgent(env.observation_space.shape, config['n_actions'], log_writer, config, device=device)
     agent.net.load_state_dict(torch.load(save_path / "model.pt"))
+else:
+    agent = DQNAgent(env.observation_space.shape, config['n_actions'], log_writer, config, device=device)
 
+
+if args.load == "" or (args.train and args.load != ""):
+    # either train a new agent or train the loaded agent
+    start_training = perf_counter()
+    train(env, agent, env2=env2)
+    print("Training time: {}s".format(perf_counter()-start_training))
+else:
     for i in range(20):
         play(agent, env)
+    

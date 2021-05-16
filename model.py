@@ -15,7 +15,6 @@ class CNN_DQN(nn.Module):
         self.conv_layers = nn.Sequential(
             nn.Conv2d(3, 16, (2, 2)),
             nn.ReLU(),
-            # nn.MaxPool2d((2, 2)),
             nn.Conv2d(16, 32, (2, 2)),
             nn.ReLU(),
             nn.Conv2d(32, 64, (2, 2)),
@@ -41,6 +40,7 @@ class CNN_DQN(nn.Module):
                 nn.ReLU(),
                 nn.Linear(64, 1)
             )
+
 
     def _get_conv_out(self, shape):
         o = self.conv_layers(torch.zeros(1, *shape))
