@@ -40,6 +40,6 @@ ax.spines['top'].set_visible(False)
 ax.spines['right'].set_visible(False)
 plt.legend()
 plt.tight_layout()
-plt.savefig("D:\\UCL\\Master\\Q2\\Data mining and decision making\\projects\\project-RL\\report\\figures\\" + plotname + ".pdf", transparent=True)
+plt.savefig(plotname + ".pdf", transparent=True)
 plt.show()
 

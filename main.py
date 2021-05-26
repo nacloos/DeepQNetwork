@@ -20,7 +20,6 @@ from model import DQNAgent
 
 env_name = "MiniGrid-Empty-Random-6x6-v0"
 
-
 save_dir = Path("runs")
 model_name = "DQN"
 
@@ -73,7 +72,7 @@ def preprocess_obs(obs):
         obs = obs.reshape(-1)
     return obs
 
-def train(env, agent, env2=None):
+def train(env, agent):
     print("Starting {} on device: {}".format(run_name, device))
     save_path.mkdir(parents=True, exist_ok=True)
     with open(save_path / "config.json", 'w') as f:
@@ -93,18 +92,13 @@ def train(env, agent, env2=None):
         loss_time = 0
         env_time = 0
 
-        if env2 is None:
-            train_env = env
-        else:
-            train_env = env if np.random.rand() < 0.75 else env2 # pick the env at random
-
-        obs = train_env.reset() 
+        obs = env.reset() 
         obs = preprocess_obs(obs)
         
         for step in range(config['episode_max_steps']):
             tic = perf_counter()
             action = agent.select_action(obs, training_iter)
-            next_obs, reward, done, _ = train_env.step(action)
+            next_obs, reward, done, _ = env.step(action)
             next_obs = preprocess_obs(next_obs)
             env_time += perf_counter() - tic
 
@@ -152,7 +146,7 @@ def train(env, agent, env2=None):
 
         episode += 1
 
-    # TODO save every time the best score is beatenw
+    # TODO better to save every time the best score is beaten
     torch.save(agent.net.state_dict(), save_path / "model.pt")
     play(agent, env, save_video=save_path / "iter-{}-final.gif".format(training_iter))
 
@@ -202,10 +196,6 @@ def make_env(env_name):
 
 
 env = make_env(env_name)
-if 'env_name2' in globals():
-    env2 = make_env(env_name2) 
-else:
-    env2 = None
 
 log_writer = SummaryWriter(save_path)
 
@@ -222,7 +212,7 @@ else:
 if args.load == "" or (args.train and args.load != ""):
     # either train a new agent or train the loaded agent
     start_training = perf_counter()
-    train(env, agent, env2=env2)
+    train(env, agent)
     print("Training time: {}s".format(perf_counter()-start_training))
 else:
     for i in range(20):

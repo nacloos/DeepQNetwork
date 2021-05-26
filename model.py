@@ -146,6 +146,7 @@ class DQNAgent():
             Q_target = reward + self.gamma*next_Q
 
             # if the residual variance is close to 1, the network doesn't learn to predict the reward (the error varies as much as the target -> not learning)
+            # see https://andyljones.com/posts/rl-debugging.html
             self.log_writer.add_scalar('Agent/residual variance', torch.var(Q - Q_target)/torch.var(Q_target), iter)
             p = torch.bincount(action)/self.batch_size
             p[p == 0] = 1e-5
